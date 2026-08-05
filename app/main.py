@@ -17,7 +17,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Path, Query, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -61,8 +61,8 @@ class ModeSummary(BaseModel):
 class ModesResponse(BaseModel):
     bc: BC
     count: int
-    freq_min: float
-    freq_max: float
+    freq_min: float | None = None
+    freq_max: float | None = None
     modes: list[ModeSummary]
 
 
@@ -94,11 +94,12 @@ def root() -> ServiceInfo:
 @app.get("/modes", response_model=ModesResponse)
 def list_modes(bc: BC = Query(default="free")) -> ModesResponse:
     cat = registry.catalog(bc)
+    count = len(cat.modes)
     return ModesResponse(
         bc=bc,
-        count=len(cat.modes),
-        freq_min=cat.modes[0].frequency,
-        freq_max=cat.modes[-1].frequency,
+        count=count,
+        freq_min=cat.modes[0].frequency if count else None,
+        freq_max=cat.modes[-1].frequency if count else None,
         modes=[
             ModeSummary(
                 index=mode.index,
@@ -113,7 +114,10 @@ def list_modes(bc: BC = Query(default="free")) -> ModesResponse:
 
 
 @app.get("/modes/{index}", response_model=ModeDetail)
-def get_mode(index: int, bc: BC = Query(default="free")) -> ModeDetail:
+def get_mode(
+    index: Annotated[int, Path(ge=1, description="ranked mode index (1-based)")],
+    bc: BC = Query(default="free"),
+) -> ModeDetail:
     cat = registry.catalog(bc)
     mode = cat.get(index)
     if mode is None:
@@ -133,6 +137,12 @@ def get_mode(index: int, bc: BC = Query(default="free")) -> ModeDetail:
 
 
 def _resolve_mode(cat, index: int | None, m: int | None, n: int | None):
+    has_pair = m is not None and n is not None
+    if index is not None and has_pair:
+        raise HTTPException(
+            status_code=422,
+            detail="provide either index or both m and n, not both",
+        )
     if index is not None:
         mode = cat.get(index)
         if mode is None:
@@ -141,7 +151,7 @@ def _resolve_mode(cat, index: int | None, m: int | None, n: int | None):
                 detail=f"no mode {index} for {cat.bc}; available 1..{len(cat.modes)}",
             )
         return mode
-    if m is not None and n is not None:
+    if has_pair:
         mode = cat.resolve(m, n)
         if mode is None:
             labels = ", ".join(f"({a},{b})" for a, b in cat.labels())

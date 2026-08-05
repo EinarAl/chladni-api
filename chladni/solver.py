@@ -54,7 +54,8 @@ class SolverResult:
     modes: list[Mode] = field(default_factory=list)
 
 
-def _simpson2(fx: np.ndarray, fy: np.ndarray, weights: np.ndarray, scale: float) -> float:
+def _simpson_axis(fx: np.ndarray, fy: np.ndarray, weights: np.ndarray, scale: float) -> float:
+    """Simpson rule applied over one axis: int fx(s) fy(s) ds on [0, 1]."""
     return float(np.dot(fx * fy, weights) * scale)
 
 
@@ -85,10 +86,10 @@ def solve_plate(bc: str, n_elastic: int = 30, quiet: bool = False) -> SolverResu
     Ip = np.zeros((n_beams, n_beams))
     for i in range(n_beams):
         for k in range(n_beams):
-            M[i, k] = _simpson2(phi[i], phi[k], weights, scale)
-            A[i, k] = _simpson2(phi2[i], phi2[k], weights, scale)
-            B[i, k] = _simpson2(phi2[i], phi[k], weights, scale)
-            Ip[i, k] = _simpson2(phi1[i], phi1[k], weights, scale)
+            M[i, k] = _simpson_axis(phi[i], phi[k], weights, scale)
+            A[i, k] = _simpson_axis(phi2[i], phi2[k], weights, scale)
+            B[i, k] = _simpson_axis(phi2[i], phi[k], weights, scale)
+            Ip[i, k] = _simpson_axis(phi1[i], phi1[k], weights, scale)
 
     # Assemble the 4th-order stiffness tensor
     #   K_ijkl = A_ik M_jl + M_ik A_jl

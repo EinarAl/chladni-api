@@ -3,7 +3,16 @@
 import numpy as np
 import pytest
 
-from chladni.solver import solve_plate
+from chladni.solver import _simpson_axis, solve_plate
+
+
+def test_simpson_axis_integrates_constant_to_one():
+    weights = np.ones(5)
+    weights[1:-1:2] = 4
+    weights[2:-2:2] = 2
+    scale = (1.0 / 4) / 3.0
+    ones = np.ones(5)
+    assert _simpson_axis(ones, ones, weights, scale) == pytest.approx(1.0, abs=1e-12)
 
 
 def test_solve_rejects_unknown_bc():
