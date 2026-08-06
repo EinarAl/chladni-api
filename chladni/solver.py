@@ -59,6 +59,25 @@ def _simpson_axis(fx: np.ndarray, fy: np.ndarray, weights: np.ndarray, scale: fl
     return float(np.dot(fx * fy, weights) * scale)
 
 
+def _eigh_generalized(k_red: np.ndarray, m_red: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Solve K v = lambda M v without the generalized LAPACK drivers.
+
+    The generalized drivers (sygvd and friends) reduce the problem through an
+    internal Cholesky of M. Some numpy/scipy wheels (e.g. Linux cp311 with
+    scipy 1.17) fail that step with "leading minor of B is not positive
+    definite" even when M is comfortably positive definite (here min
+    eigenvalue ~2.7e-4, condition ~5e4). Reducing to standard form through
+    the eigendecomposition of M uses only standard symmetric solves, which
+    cannot fail on a positive-definite M.
+    """
+    w, v = linalg.eigh(m_red)
+    w = np.clip(w, w[-1] * 1e-14, None)
+    m_inv_half = v @ (v / np.sqrt(w)).T  # M^-1/2, symmetric
+    a_std = m_inv_half @ k_red @ m_inv_half
+    eigvals, u = linalg.eigh(a_std)
+    return eigvals, m_inv_half @ u
+
+
 def solve_plate(bc: str, n_elastic: int = 30, quiet: bool = False) -> SolverResult:
     """Run the Rayleigh-Ritz solve for one boundary condition."""
     if bc not in BOUNDARY_CONDITIONS:
@@ -137,7 +156,7 @@ def solve_plate(bc: str, n_elastic: int = 30, quiet: bool = False) -> SolverResu
         m_red = Mbig
         pivot = -1
 
-    eigvals, eigvecs = linalg.eigh(k_red, m_red)
+    eigvals, eigvecs = _eigh_generalized(k_red, m_red)
     eigvals = np.maximum(eigvals, 0.0)
 
     # Frequencies calibrated so the fundamental lands on F11.
