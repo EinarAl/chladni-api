@@ -2,6 +2,8 @@
 
 Rayleigh-Ritz eigenmodes of a thin square plate, served as a REST API. Request a mode under free edge or clamped boundary conditions and get the Chladni pattern as SVG or PNG. For musicians, physics students, and anyone who wants real plate vibration modes without running a solver.
 
+**Live at https://chladni-api.onrender.com** (free tier). The service sleeps after 15 idle minutes; the first request then takes around a minute while the container restarts and the solver runs. Try `curl https://chladni-api.onrender.com/render?bc=clamped&m=2&n=1&format=svg -o cross.svg`.
+
 ![License](https://img.shields.io/github/license/EinarAl/chladni-api)
 ![CI](https://img.shields.io/github/actions/workflow/status/EinarAl/chladni-api/ci.yml)
 ![Last commit](https://img.shields.io/github/last-commit/EinarAl/chladni-api)
@@ -107,4 +109,4 @@ Docker:
 docker compose up --build
 ```
 
-Deploy note: the image runs headless uvicorn on port 8000 and is meant for a free-tier container host (for example Render); the HEALTHCHECK doubles as the platform's health probe.
+Deploy note: the service runs on Render's free tier from the `render.yaml` blueprint in this repo. The image binds to `$PORT` (default 8000) and the Docker HEALTHCHECK doubles as the platform health probe against `/`.
