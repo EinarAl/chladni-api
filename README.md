@@ -1,5 +1,9 @@
 # Chladni API
 
+![License](https://img.shields.io/github/license/EinarAl/chladni-api)
+![CI](https://img.shields.io/github/actions/workflow/status/EinarAl/chladni-api/ci.yml)
+![Last commit](https://img.shields.io/github/last-commit/EinarAl/chladni-api)
+
 Rayleigh-Ritz eigenmodes of a thin square plate, served as a REST API. Request a mode under free edge or clamped boundary conditions and get the Chladni pattern as SVG or PNG. For musicians, physics students, and anyone who wants real plate vibration modes without running a solver.
 
 **Live at https://chladni-api.onrender.com** (free tier). The service sleeps after 15 idle minutes; the first request then takes around a minute while the container restarts and the solver runs.
@@ -22,10 +26,6 @@ curl.exe "https://chladni-api.onrender.com/render?bc=free&index=26&format=svg" -
 curl "https://chladni-api.onrender.com/render?bc=free&index=26&format=png" -o chladni_464hz.png
 curl "https://chladni-api.onrender.com/modes?bc=free"
 ```
-
-![License](https://img.shields.io/github/license/EinarAl/chladni-api)
-![CI](https://img.shields.io/github/actions/workflow/status/EinarAl/chladni-api/ci.yml)
-![Last commit](https://img.shields.io/github/last-commit/EinarAl/chladni-api)
 
 Stack: Python 3.11+, FastAPI, NumPy, SciPy, pydantic, Pillow, uvicorn. Tests: pytest + httpx. Lint: ruff. CI: GitHub Actions. Package: Docker.
 
