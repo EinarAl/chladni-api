@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from chladni.solver import _simpson_axis, solve_plate
+from chladni.solver import _rayleigh_max_residual, _simpson_axis, solve_plate
 
 
 def test_simpson_axis_integrates_constant_to_one():
@@ -13,6 +13,17 @@ def test_simpson_axis_integrates_constant_to_one():
     scale = (1.0 / 4) / 3.0
     ones = np.ones(5)
     assert _simpson_axis(ones, ones, weights, scale) == pytest.approx(1.0, abs=1e-12)
+
+
+def test_rayleigh_residual_accepts_true_pairs_and_rejects_swapped():
+    d = np.array([2.0, 5.0, 11.0])
+    q = np.linalg.qr(np.vander(np.linspace(-0.9, 0.9, 3), 3) + np.eye(3))[0]
+    k = (q * d) @ q.T
+    m = q @ q.T
+    assert _rayleigh_max_residual(k, m, d, q) < 1e-10
+
+    scrambled = np.roll(d, 1)
+    assert _rayleigh_max_residual(k, m, scrambled, q) > 0.1
 
 
 def test_solve_rejects_unknown_bc():

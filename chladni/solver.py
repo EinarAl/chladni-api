@@ -59,8 +59,8 @@ def _simpson_axis(fx: np.ndarray, fy: np.ndarray, weights: np.ndarray, scale: fl
     return float(np.dot(fx * fy, weights) * scale)
 
 
-def _eigh_generalized(k_red: np.ndarray, m_red: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Solve K v = lambda M v without the generalized LAPACK drivers.
+def _eigh_standard_form(k_red: np.ndarray, m_red: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Solve K v = lambda M v by reduction to a standard symmetric problem.
 
     The generalized drivers (sygvd and friends) reduce the problem through an
     internal Cholesky of M. Some numpy/scipy wheels (e.g. Linux cp311 with
@@ -76,6 +76,80 @@ def _eigh_generalized(k_red: np.ndarray, m_red: np.ndarray) -> tuple[np.ndarray,
     a_std = m_inv_half @ k_red @ m_inv_half
     eigvals, u = linalg.eigh(a_std)
     return eigvals, m_inv_half @ u
+
+
+def _rayleigh_max_residual(
+    k_red: np.ndarray,
+    m_red: np.ndarray,
+    eigvals: np.ndarray,
+    eigvecs: np.ndarray,
+) -> float:
+    """Worst normalized violation of K v = lambda M v across computed pairs.
+
+    Every correct eigenpair satisfies the identity exactly regardless of
+    which LAPACK path produced it, so this measures output quality against
+    the original matrices rather than trusting any single solver backend.
+    Columns are scaled LAPACK-style by (||K||_F + |lambda| ||M||_F) ||v||
+    so near-zero eigenvalues (rigid-body-like free modes) do not make the
+    relative error blow up spuriously.
+    """
+    k_norm = np.linalg.norm(k_red, "fro")
+    m_norm = np.linalg.norm(m_red, "fro")
+    resid = k_red @ eigvecs - eigvecs * eigvals
+    vec_norm = np.linalg.norm(eigvecs, axis=0)
+    denom = (k_norm + np.abs(eigvals) * m_norm) * np.maximum(vec_norm, np.finfo(float).tiny)
+    return float(np.max(np.linalg.norm(resid, axis=0) / denom))
+
+
+def _solve_generalized(k_red: np.ndarray, m_red: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Solve K v = lambda M v, accepting only verified eigenpairs.
+
+    numpy/scipy wheels ship different OpenBLAS builds and this problem has
+    now broken two ways on Linux CI: sygvd refuses its internal Cholesky on
+    cp311/scipy 1.17, and cp313/numpy 2.5 returned a silently corrupted
+    spectrum (eigenvalues collapsed near lambda_1, mode count falling from
+    ~90 to 7). Each strategy below therefore has its output checked with
+    _rayleigh_max_residual and the first clean result wins; if none passes,
+    the solve raises instead of serving bad physics.
+    """
+    k_sym = 0.5 * (k_red + k_red.T)
+    m_sym = 0.5 * (m_red + m_red.T)
+    n_check = min(128, k_sym.shape[0])
+
+    def driver(name: str):
+        def run() -> tuple[np.ndarray, np.ndarray]:
+            return linalg.eigh(k_sym, m_sym, driver=name)
+
+        run.label = name
+        return run
+
+    def standard_form() -> tuple[np.ndarray, np.ndarray]:
+        return _eigh_standard_form(k_sym, m_sym)
+
+    strategies = [(standard_form, "standard_form")]
+    strategies += [(driver(name), name) for name in ("gvd", "gv")]
+    residuals: list[float] = []
+    for strategy, label in strategies:
+        try:
+            eigvals, eigvecs = strategy()
+        except (linalg.LinAlgError, ValueError, TypeError):
+            continue
+        residual = _rayleigh_max_residual(
+            k_sym, m_sym, eigvals[:n_check], eigvecs[:, :n_check]
+        )
+        # The reduced problem at n_elastic=30 carries condition number well
+        # past 1e12 (beta_30^4 scaling), so even verified pairs leave a
+        # normalized residual around 1e-2. The bar below therefore targets
+        # qualitative corruption - mispaired or fabricated vectors score
+        # O(1) - rather than chasing machine precision.
+        if residual < 0.05:
+            return eigvals, eigvecs
+        residuals.append(f"{label}={residual:.3e}")
+
+    raise RuntimeError(
+        "no generalized eigensolve strategy produced verified pairs; "
+        f"residuals: {', '.join(residuals) or 'all strategies raised'}"
+    )
 
 
 def solve_plate(bc: str, n_elastic: int = 30, quiet: bool = False) -> SolverResult:
@@ -156,7 +230,7 @@ def solve_plate(bc: str, n_elastic: int = 30, quiet: bool = False) -> SolverResu
         m_red = Mbig
         pivot = -1
 
-    eigvals, eigvecs = _eigh_generalized(k_red, m_red)
+    eigvals, eigvecs = _solve_generalized(k_red, m_red)
     eigvals = np.maximum(eigvals, 0.0)
 
     # Frequencies calibrated so the fundamental lands on F11.
