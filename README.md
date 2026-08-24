@@ -21,7 +21,7 @@ curl.exe "https://chladni-api.onrender.com/render?bc=free&index=26&format=svg" -
 # same mode as PNG, and every mode listed as JSON
 curl "https://chladni-api.onrender.com/render?bc=free&index=26&format=png" -o chladni_464hz.png
 curl "https://chladni-api.onrender.com/modes?bc=free"
-``` Try `curl https://chladni-api.onrender.com/render?bc=clamped&m=2&n=1&format=svg -o cross.svg`.
+```
 
 ![License](https://img.shields.io/github/license/EinarAl/chladni-api)
 ![CI](https://img.shields.io/github/actions/workflow/status/EinarAl/chladni-api/ci.yml)
@@ -38,27 +38,18 @@ Real plate eigenmodes are more involved than they look. Getting them means build
 A single FastAPI process owns the solve. Rayleigh-Ritz assembly runs once per boundary condition at startup and is cached in memory for the life of the process. Rendering extracts the zero contour with marching squares and emits SVG or PNG.
 
 ```
-┌────────────────────┐        ┌────────────────────────────────────────────────┐
-│ HTTP client        │        │ chladni-api (FastAPI, in-process cache)        │
-│ curl / /docs /     │        │                                                │
-│ scripts            ├────────┤  /modes  /modes/{index}                        │
-└────────────────────┘        │    ranked list or one mode + coefficients      │
-                              │  /render                                       │
-                              │    resolve (index | m,n)                       │
-                              │    field grid --> marching squares contour     │
-                              │                                                │
-                              │   ┌───────────┐  ┌────────────┐  ┌────────┐    │
-                              │   │ SVG vector│  │ PNG raster │  │ JSON   │    │
-                              │   │ sand/field│  │ (Pillow)   │  │ grid   │    │
-                              │   └───────────┘  └────────────┘  └────────┘    │
-                              │                                                │
-                              └────────────────────────┬───────────────────────┘
-                                                       │
-                                        Rayleigh-Ritz solve (SciPy eigh)
-                                        K v = lambda M v, 30-beam product basis
-                                        free: W(1/2,1/2)=0 constraint
-                                        clamped: clamped-clamped beams
-                                        15-2000 Hz window, F11 = 23 Hz
+HTTP client
+   |
+   v
+FastAPI service, single process, in-process cache
+   /modes     ranked modes and coefficient vectors
+   /render    SVG or PNG or JSON, zero contour via marching squares
+
+startup, once per boundary condition:
+   Rayleigh-Ritz solve  K v = lambda M v  (SciPy eigh)
+   product basis of 30 beam eigenfunctions
+   free edge adds the center constraint W(1/2,1/2) = 0
+   window 15-2000 Hz, calibrated so F11 = 23 Hz
 ```
 
 Modes are addressed two ways. The ranked index is the honest solver output: mode 1 is the fundamental, mode 2 the next-highest frequency, and so on. The plate theory pair (m, n) resolves to the mode whose dominant basis character matches, so `m=2&n=3` behaves like the tuner's plate notation.
