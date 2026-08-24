@@ -2,7 +2,26 @@
 
 Rayleigh-Ritz eigenmodes of a thin square plate, served as a REST API. Request a mode under free edge or clamped boundary conditions and get the Chladni pattern as SVG or PNG. For musicians, physics students, and anyone who wants real plate vibration modes without running a solver.
 
-**Live at https://chladni-api.onrender.com** (free tier). The service sleeps after 15 idle minutes; the first request then takes around a minute while the container restarts and the solver runs. Try `curl https://chladni-api.onrender.com/render?bc=clamped&m=2&n=1&format=svg -o cross.svg`.
+**Live at https://chladni-api.onrender.com** (free tier). The service sleeps after 15 idle minutes; the first request then takes around a minute while the container restarts and the solver runs.
+
+![Chladni pattern of free-edge mode (m,n) = (3,5) near 464 Hz](examples/free_464hz.svg)
+
+Free-edge mode (m, n) = (3, 5) at about 464 Hz, sitting just under B♭4. The image is the API's own SVG output, fetched exactly like this:
+
+```
+# simplest: paste into a browser
+https://chladni-api.onrender.com/render?bc=free&index=26&format=svg
+
+# cmd or bash (quotes matter: & splits unquoted commands)
+curl "https://chladni-api.onrender.com/render?bc=free&index=26&format=svg" -o chladni_464hz.svg
+
+# PowerShell (use curl.exe, not the curl alias)
+curl.exe "https://chladni-api.onrender.com/render?bc=free&index=26&format=svg" -o chladni_464hz.svg
+
+# same mode as PNG, and every mode listed as JSON
+curl "https://chladni-api.onrender.com/render?bc=free&index=26&format=png" -o chladni_464hz.png
+curl "https://chladni-api.onrender.com/modes?bc=free"
+``` Try `curl https://chladni-api.onrender.com/render?bc=clamped&m=2&n=1&format=svg -o cross.svg`.
 
 ![License](https://img.shields.io/github/license/EinarAl/chladni-api)
 ![CI](https://img.shields.io/github/actions/workflow/status/EinarAl/chladni-api/ci.yml)
