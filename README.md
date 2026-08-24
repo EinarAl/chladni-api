@@ -10,9 +10,9 @@ Rayleigh-Ritz eigenmodes of a thin square plate, served as a REST API. Request a
 
 Stack: Python 3.11+, FastAPI, NumPy, SciPy, pydantic, Pillow, uvicorn. Tests: pytest + httpx. Lint: ruff. CI: GitHub Actions. Package: Docker.
 
-## Problem Statement
+## What this does
 
-Real plate eigenmodes are more involved than they look. Getting them means building the biharmonic stiffness matrix and solving a generalized eigenvalue problem, the kind of thing that is easy to get slightly wrong. The chladni tuner project already did the heavy lifting, but only inside a browser app. This API offers the same physics as a small REST service, so anyone with a script or an idea can pull a mode and a rendered Chladni pattern without starting from scratch.
+Real plate eigenmodes are more involved than they look. Getting them means building the biharmonic stiffness matrix and solving a generalized eigenvalue problem, the kind of thing that is easy to get slightly wrong. My chladni tuner project already did the heavy lifting, but only inside a browser app. This API offers the same physics as a small REST service, so anyone with a script or an idea can pull a mode and a rendered Chladni pattern without starting from scratch.
 
 ## System Architecture
 
